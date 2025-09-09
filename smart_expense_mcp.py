@@ -42,6 +42,279 @@ class SmartExpenseMCP:
             "textarea": "长文本"
         }
         return type_mapping.get(api_type, "文本")
+
+    async def get_archive_categories(self) -> Dict[str, Any]:
+        """获取自定义档案类别列表"""
+        try:
+            logger.info("🗃️ 获取自定义档案类别...")
+            
+            # 强制刷新token
+            await self.auth_service._refresh_token()
+            access_token = await self.auth_service.get_access_token()
+            
+            url = f"https://app.ekuaibao.com/api/openapi/v1/dimensions"
+            params = {
+                "accessToken": access_token,
+                "start": 0,
+                "count": 100
+            }
+            
+            headers = {
+                "content-type": "application/json",
+                "Accept": "application/json"
+            }
+            
+            logger.info(f"调用档案类别API: {url}")
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, params=params, headers=headers)
+                response.raise_for_status()
+                
+                result = response.json()
+                logger.info(f"档案类别API响应: {result}")
+                
+                if result.get("success", True):  # 有些API返回没有success字段
+                    dimensions = result.get("items", [])
+                    
+                    # 格式化档案类别信息
+                    archive_categories = []
+                    for dim in dimensions:
+                        category_info = {
+                            "id": dim.get("id"),
+                            "name": dim.get("name"),
+                            "code": dim.get("code"),
+                            "enabled": dim.get("enabled", True)
+                        }
+                        archive_categories.append(category_info)
+                    
+                    logger.info(f"找到 {len(archive_categories)} 个档案类别")
+                    
+                    return {
+                        "success": True,
+                        "message": f"找到 {len(archive_categories)} 个档案类别",
+                        "data": {
+                            "categories": archive_categories
+                        }
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "message": f"获取档案类别失败: {result.get('message', '未知错误')}"
+                    }
+                    
+        except Exception as e:
+            logger.error(f"获取档案类别失败: {e}")
+            return {
+                "success": False,
+                "message": f"❌ 获取档案类别失败: {str(e)}"
+            }
+
+    async def get_archive_items(self, dimension_id: str) -> Dict[str, Any]:
+        """获取指定档案类别下的档案项"""
+        try:
+            logger.info(f"🗃️ 获取档案类别 {dimension_id} 的档案项...")
+            
+            # 强制刷新token
+            await self.auth_service._refresh_token()
+            access_token = await self.auth_service.get_access_token()
+            
+            # 根据文档，获取档案项的API路径应该是 /v1/dimensions/{id}/items
+            # 但可能需要不同的API版本或路径格式
+            url = f"https://app.ekuaibao.com/api/openapi/v1/dimensions/items"
+            params = {
+                "accessToken": access_token,
+                "dimensionId": dimension_id,
+                "start": 0,
+                "count": 100
+            }
+            
+            headers = {
+                "content-type": "application/json",
+                "Accept": "application/json"
+            }
+            
+            logger.info(f"调用档案项API: {url} (dimensionId={dimension_id})")
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, params=params, headers=headers)
+                
+                # 如果404，尝试其他API路径
+                if response.status_code == 404:
+                    logger.warning(f"API路径1失败，尝试路径2...")
+                    url2 = f"https://app.ekuaibao.com/api/openapi/v1/dimension/items"
+                    response = await client.get(url2, params=params, headers=headers)
+                    
+                    if response.status_code == 404:
+                        logger.warning(f"API路径2失败，尝试路径3...")
+                        # 尝试使用不同的参数格式
+                        url3 = f"https://app.ekuaibao.com/api/openapi/v1/basedata/dimension/items"
+                        response = await client.get(url3, params=params, headers=headers)
+                
+                response.raise_for_status()
+                
+                result = response.json()
+                logger.info(f"档案项API响应: {result}")
+                
+                if result.get("success", True):
+                    items = result.get("items", [])
+                    
+                    # 格式化档案项信息
+                    archive_items = []
+                    for item in items:
+                        item_info = {
+                            "id": item.get("id"),
+                            "name": item.get("name"),
+                            "code": item.get("code"),
+                            "enabled": item.get("enabled", True)
+                        }
+                        archive_items.append(item_info)
+                    
+                    logger.info(f"找到 {len(archive_items)} 个档案项")
+                    
+                    return {
+                        "success": True,
+                        "message": f"找到 {len(archive_items)} 个档案项",
+                        "data": {
+                            "items": archive_items
+                        }
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "message": f"获取档案项失败: {result.get('message', '未知错误')}"
+                    }
+                    
+        except Exception as e:
+            logger.error(f"获取档案项失败: {e}")
+            return {
+                "success": False,
+                "message": f"❌ 获取档案项失败: {str(e)}"
+            }
+
+    async def get_available_archive_options(self) -> Dict[str, Any]:
+        """获取当前模板中的档案字段及其可选项"""
+        try:
+            logger.info("🗃️ 查询模板中的档案字段选项...")
+            
+            # 1. 获取模板字段
+            template_result = await self.get_template_fields()
+            if not template_result["success"]:
+                return template_result
+            
+            fields_info = template_result["data"]["fields"]
+            
+            # 2. 找出档案字段
+            archive_fields = []
+            for field in fields_info:
+                value_from = field.get("valueFrom", "")
+                if value_from.startswith("basedata.Dimension."):
+                    archive_name = value_from.replace("basedata.Dimension.", "")
+                    archive_fields.append({
+                        "field_name": field["name"],
+                        "field_label": field["label"],
+                        "archive_name": archive_name,
+                        "required": field["required"]
+                    })
+            
+            if not archive_fields:
+                return {
+                    "success": True,
+                    "message": "当前模板中没有档案字段",
+                    "data": {
+                        "archive_fields": []
+                    }
+                }
+            
+            # 3. 获取档案类别列表
+            categories_result = await self.get_archive_categories()
+            if not categories_result["success"]:
+                return categories_result
+            
+            categories = categories_result["data"]["categories"]
+            
+            # 4. 为每个档案字段匹配档案类别并获取选项
+            archive_options = []
+            for archive_field in archive_fields:
+                # 查找匹配的档案类别
+                matching_category = None
+                for category in categories:
+                    if category["name"] == archive_field["archive_name"]:
+                        matching_category = category
+                        break
+                
+                if matching_category:
+                    # 获取该档案类别的选项
+                    items_result = await self.get_archive_items(matching_category["id"])
+                    if items_result["success"]:
+                        options = items_result["data"]["items"]
+                        archive_options.append({
+                            "field_name": archive_field["field_name"],
+                            "field_label": archive_field["field_label"],
+                            "archive_name": archive_field["archive_name"],
+                            "required": archive_field["required"],
+                            "category_id": matching_category["id"],
+                            "options": options
+                        })
+                    else:
+                        archive_options.append({
+                            "field_name": archive_field["field_name"],
+                            "field_label": archive_field["field_label"],
+                            "archive_name": archive_field["archive_name"],
+                            "required": archive_field["required"],
+                            "category_id": matching_category["id"],
+                            "options": [],
+                            "error": f"获取选项失败: {items_result['message']}"
+                        })
+                else:
+                    archive_options.append({
+                        "field_name": archive_field["field_name"],
+                        "field_label": archive_field["field_label"],
+                        "archive_name": archive_field["archive_name"],
+                        "required": archive_field["required"],
+                        "category_id": None,
+                        "options": [],
+                        "error": f"未找到匹配的档案类别: {archive_field['archive_name']}"
+                    })
+            
+            # 5. 格式化返回消息
+            if archive_options:
+                options_display = []
+                for option in archive_options:
+                    if option.get("error"):
+                        options_display.append(f"❌ **{option['field_label']}**: {option['error']}")
+                    else:
+                        options_count = len(option["options"])
+                        options_list = ", ".join([f"{item['name']}" for item in option["options"][:5]])
+                        if options_count > 5:
+                            options_list += f"...等{options_count}个"
+                        
+                        required_text = "[必填]" if option["required"] else "[可选]"
+                        options_display.append(f"🗃️ **{option['field_label']}** {required_text}: {options_list}")
+                
+                message = f"""
+📋 **当前模板的档案字段选项**
+
+找到 {len(archive_options)} 个档案字段:
+
+{chr(10).join(options_display)}
+
+✅ 创建申请单时，请从上述选项中选择相应的档案项
+"""
+            else:
+                message = "当前模板中没有可用的档案字段"
+            
+            return {
+                "success": True,
+                "message": message,
+                "data": {
+                    "archive_fields": archive_options
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"获取档案字段选项失败: {e}")
+            return {
+                "success": False,
+                "message": f"❌ 获取档案字段选项失败: {str(e)}"
+            }
     
     async def get_template_fields(self, template_type: str = "requisition") -> Dict[str, Any]:
         """获取申请单模板字段信息（每次都重新拉取最新模板）"""
@@ -161,7 +434,8 @@ class SmartExpenseMCP:
                             "name": field_name,
                             "label": field_config.get("label", field_name),
                             "type": self._translate_field_type(field_config.get("type", "text")),
-                            "required": not field_config.get("optional", False)
+                            "required": not field_config.get("optional", False),
+                            "valueFrom": field_config.get("valueFrom", "")  # 保留valueFrom信息
                         }
                         fields_info.append(field_info)
                         logger.info(f"动态添加字段: {field_name} -> {field_info}")
@@ -265,7 +539,7 @@ class SmartExpenseMCP:
                 }
             
             # 4. 构建API请求体
-            request_body = self._build_request_body(field_mapping, template_id, fields_info)
+            request_body = await self._build_request_body(field_mapping, template_id, fields_info)
             
             # 5. 调用创建API
             create_url = f"{self.base_url}/v2.2/flow/data"
@@ -458,7 +732,7 @@ class SmartExpenseMCP:
         return True, "验证通过"
     
     
-    def _build_request_body(self, field_mapping: Dict[str, Any], template_id: str, fields_info: List[Dict]) -> Dict[str, Any]:
+    async def _build_request_body(self, field_mapping: Dict[str, Any], template_id: str, fields_info: List[Dict]) -> Dict[str, Any]:
         """构建API请求体 - 完全动态处理所有字段"""
         request_body = {
             "form": {
@@ -472,7 +746,22 @@ class SmartExpenseMCP:
         
         # 动态处理所有字段，根据字段类型进行相应处理
         for field_name, field_value in field_mapping.items():
-            processed_value = self._process_field_by_type(field_name, field_value, fields_info)
+            # 检查是否为档案字段
+            is_archive_field = False
+            archive_value_from = ""
+            for field in fields_info:
+                if field['name'] == field_name and field.get('valueFrom', '').startswith('basedata.Dimension.'):
+                    is_archive_field = True
+                    archive_value_from = field.get('valueFrom', '')
+                    break
+            
+            if is_archive_field:
+                # 档案字段需要异步处理
+                processed_value = await self._process_archive_field(field_value, archive_value_from, field_name)
+            else:
+                # 其他字段同步处理
+                processed_value = self._process_field_by_type(field_name, field_value, fields_info)
+            
             request_body["form"][field_name] = processed_value
         
         return request_body
@@ -491,6 +780,7 @@ class SmartExpenseMCP:
             return field_value
             
         field_type = field_config.get('type', '文本')
+        value_from = field_config.get('valueFrom', '')
         
         # 根据字段类型动态处理
         if field_type == '金额':
@@ -499,9 +789,69 @@ class SmartExpenseMCP:
         elif field_type == '日期':
             # 日期字段智能处理
             return self._process_date_field(field_value)
+        elif value_from.startswith('basedata.Dimension.'):
+            # 档案字段：需要从档案选项中匹配ID
+            return self._process_archive_field(field_value, value_from, field_name)
         else:
             # 文本、选择等字段直接返回
             return field_value
+
+    async def _process_archive_field(self, field_value: Any, value_from: str, field_name: str) -> str:
+        """处理档案字段，将用户输入的档案名称转换为档案ID"""
+        try:
+            if not field_value:
+                logger.warning(f"档案字段 {field_name} 的值为空")
+                return ""
+            
+            logger.info(f"🗃️ 处理档案字段 {field_name}: {field_value} (valueFrom: {value_from})")
+            
+            # 提取档案类别名称
+            archive_name = value_from.replace('basedata.Dimension.', '')
+            
+            # 获取档案类别列表
+            categories_result = await self.get_archive_categories()
+            if not categories_result["success"]:
+                logger.error(f"获取档案类别失败: {categories_result['message']}")
+                return str(field_value)
+            
+            # 查找匹配的档案类别
+            matching_category = None
+            for category in categories_result["data"]["categories"]:
+                if category["name"] == archive_name:
+                    matching_category = category
+                    break
+            
+            if not matching_category:
+                logger.error(f"未找到匹配的档案类别: {archive_name}")
+                return str(field_value)
+            
+            # 获取档案项列表
+            items_result = await self.get_archive_items(matching_category["id"])
+            if not items_result["success"]:
+                logger.error(f"获取档案项失败: {items_result['message']}")
+                return str(field_value)
+            
+            # 智能匹配档案项
+            field_value_str = str(field_value).strip()
+            for item in items_result["data"]["items"]:
+                item_name = item["name"].strip()
+                # 精确匹配或包含匹配
+                if field_value_str == item_name or field_value_str in item_name or item_name in field_value_str:
+                    logger.info(f"✅ 档案字段匹配成功: {field_value} -> {item_name} (ID: {item['id']})")
+                    return item["id"]
+            
+            # 如果没有匹配，返回第一个选项的ID（默认选择）
+            if items_result["data"]["items"]:
+                default_item = items_result["data"]["items"][0]
+                logger.warning(f"⚠️ 档案字段未找到精确匹配，使用默认项: {field_value} -> {default_item['name']} (ID: {default_item['id']})")
+                return default_item["id"]
+            
+            logger.error(f"档案字段 {field_name} 没有可用选项")
+            return str(field_value)
+            
+        except Exception as e:
+            logger.error(f"处理档案字段 {field_name} 失败: {e}")
+            return str(field_value)
     
     def _process_date_field(self, date_value: Any) -> int:
         """智能处理日期字段，支持多种格式"""
