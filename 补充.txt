@@ -1,0 +1,208 @@
+D:\AI开发\助手4\AI智能申请单系统完整方案.md 先阅读这个问给我列一个你的开发方案
+
+
+阅读问你上面内容，在阅读下面内容
+这是我给你的具体开发提示词，包括一些注意事项，请你认真阅读后在重新列计划，看下你的计划和内容和这个方案那个更完善，
+给 Cursor AI 的完整开发任务提示词
+项目名称： AI智能申请单系统 (AI-Powered Requisition System)
+核心指令： 禁止使用任何模拟数据(Mock Data)。所有模块必须与真实的DeepSeek API和易快报API进行集成与测试。
+
+一、项目核心目标
+构建一个通过自然语言创建和查询易快报申请单的AI系统。用户在前端输入如“创建标题为出差费用的申请单，金额1000元”，后端AI自动提取字段，调用易快报API完成创建，并返回结果。
+
+二、AI开发者（你）的职责与限制
+你的职责：
+
+根据架构，编写完整、可运行的Python代码。
+
+所有API调用必须使用真实接口和密钥。
+
+实现完整的错误处理、日志记录和用户友好提示。
+
+编写清晰、模块化的代码，包含必要的注释。
+
+你的限制：
+
+绝对禁止使用mock、假数据或硬编码的API响应。必须测试真实的网络请求。
+
+不得修改既定架构和模块划分。
+
+必须严格管理密钥，通过环境变量读取。
+
+三、系统架构与技术栈
+后端框架： FastAPI
+
+HTTP客户端： httpx (必须使用异步async/await)
+
+AI服务： DeepSeek API
+
+前端： 简单的HTML/JS聊天界面（单文件即可）
+
+架构流程： 前端 -> FastAPI (/api/chat) -> DeepSeek AI -> AI代理层(空谈检测) -> 智能MCP层(字段映射) -> 易快报API -> 返回结果
+
+四、详细模块开发指南
+1. 环境变量与认证 (services/auth_service.py)
+
+秘钥：
+
+DEEPSEEK_API_KEY = "sk-43816199a7fd42f88e93b14358954b88"
+
+EK_APP_KEY = "b433ffa4-ff6e-4e76-95e6-1a7bed8777eb"
+
+EK_APP_SECURITY = "60ec2aa6-6354-40b5-a742-0e1034962b2f"
+
+实现逻辑：
+
+编写一个AuthService类，从os.getenv()读取密钥。
+
+方法get_ek_token(): 调用易快报 POST /api/openapi/v1/auth/getAccessToken 获取accessToken。实现文件缓存逻辑（如保存到.token_cache.json），检查过期时间，避免频繁调用。
+
+方法refresh_ek_token(): 实现刷新令牌的逻辑 (POST /api/openapi/v2/auth/refreshToken)。
+
+2. FastAPI主服务 (main.py)
+
+端点： POST /api/chat
+
+请求体： {"message": "用户消息", "history": []}
+
+实现逻辑：
+
+接收请求，准备对话历史。
+
+调用deepseek_chat()函数（见下文）与AI交互。
+
+解析AI响应： 重点！AI响应可能包含工具调用请求（Tool Calls）。例如，AI返回{"tool_calls": [{"name": "create_smart_expense", "arguments": {...}}]}。
+
+执行工具调用： 如果检测到tool_calls，则根据name定位到MCP层对应的函数（如smart_expense_mcp.create_smart_expense()），并传入arguments执行。
+
+将工具执行结果返回给AI或直接返回给前端。
+
+3. DeepSeek集成 (services/deepseek_service.py)
+
+API： POST https://api.deepseek.com/chat/completions
+
+实现逻辑：
+
+函数deepseek_chat(messages: list) -> dict。
+
+messages结构必须包含system和user角色。
+
+关键系统提示词（System Prompt）: [这是核心，放在下面]
+
+4. AI代理包装层 (ai_agent_wrapper.py)
+
+核心函数： should_force_create(ai_response: str, user_message: str) -> bool
+
+实现逻辑：
+
+空谈检测： 在AI回复中搜索"现在我将为您创建", "让我为您创建", "稍等片刻"等关键词。
+
+用户意图检测： 在用户消息中搜索"创建", "提交", "帮我"等关键词，并结合是否包含"标题"、"金额"等基础信息。
+
+如果判断为需要强制创建，则直接返回一个模拟的“工具调用”指令，触发MCP层的create_smart_expense函数，而不是等待AI回复。
+
+5. 智能MCP层 (smart_expense_mcp.py) - 最核心模块
+
+必须实现的工具函数（Tool Functions）：
+
+get_template_by_id(template_id: str): 获取模板详情。
+
+create_smart_expense(user_input: str): 核心创建函数。
+
+get_document_by_code(code: str): 查询申请单。
+
+create_smart_expense处理流程：
+
+获取最新模板： 先调用GET /api/openapi/v1/specifications/latestByType?type=requisition获取模板列表，再取第一个模板的ID，调用GET /api/openapi/v2/specifications/byIds/[id]获取详情。必须缓存模板（至少5分钟），避免每次调用都请求。
+
+AI动态字段映射： 将user_input和模板的form字段结构发送给DeepSeek。提示词要求AI返回一个JSON映射。
+
+构建请求体：
+
+基础结构：{"form": {"specificationId": template_id, "submitterId": "提交人ID"}}。（提交人ID可从易快报获取员工API得到或使用一个默认测试ID）。
+
+通用赋值： 遍历AI返回的映射，对于绝大多数字段（如title, description, u_xxx），直接request_body["form"][key] = value。
+
+特殊处理： 硬编码处理requisitionMoney字段，将其构建为易快报要求的复杂金额对象结构。
+
+调用创建接口： 使用构建好的request_body，调用易快报 POST /api/openapi/v2.2/flow/data。
+
+返回结果： 格式化易快报的响应，返回创建成功的单据号和详细信息。
+
+6. 前端界面 (templates/index.html)
+
+一个简单的聊天界面，使用Fetch API与/api/chat交互。
+
+实时显示对话历史和系统回复。
+
+五、关键提示词（用于DeepSeek API调用）
+这是给AI的“系统提示词”，必须放在deepseek_service.py的system消息中：
+
+python
+SYSTEM_PROMPT = """
+你是一个专业的单据填写助手，专门帮助用户创建易快报申请单。你必须遵循以下规则：
+
+1. 当用户提供申请单信息时，你必须主动调用 `create_smart_expense` 工具来完成创建，不要等用户说“确认创建”。
+2. 如果用户输入模糊，请主动询问缺少的必填信息（如标题、金额）。
+3. 工具调用返回后，将结果清晰地回复给用户。
+
+## 可用工具：
+- create_smart_expense(user_input: str): 根据用户输入创建申请单。
+- get_document_by_code(code: str): 根据单据编号查询申请单详情。
+
+## 字段映射规则：
+用户会说“申请公司是北京总部”，但模板中字段名可能是 `u_申请公司`。你必须将用户语言映射到正确的字段名上。
+用户提供金额时，你需要输出易快报API要求的格式：`{"requisitionMoney": {"standard": "1000.00"}}`。
+
+请直接调用工具，不要空谈。你的回复应以工具调用或直接回答用户为主。
+"""
+六、测试与成功标准
+测试方法：
+
+启动服务后，在前端界面直接输入测试语句。
+
+使用curl或Postman直接向/api/chat发送POST请求。
+
+测试用例：
+
+创建测试： “创建一份标题为测试费用的申请单，金额500元”
+
+成功标准： 返回易快报的真实单据编号（如S25000089）和成功状态。必须在易快报网页后台的草稿箱中能看到这张真实单据！
+
+查询测试： “查询申请单S25000089”
+
+成功标准： 返回该单据的详细信息（标题、状态、金额）。
+
+容错测试： 输入一个不完整的指令，如“我想申请钱”。
+
+成功标准： AI能正确追问缺少的信息（如“请问您要申请什么费用？标题是什么？”）。
+
+如何确保成功：
+
+日志： 在每个关键步骤（收到请求、调用AI、调用易快报API、收到响应）打印详细日志。
+
+错误处理： 用try-catch包裹所有API调用，返回清晰的错误信息，而不是Python异常。
+
+最后对Cursor说： 请根据以上完整需求，开始逐步生成代码。首先请创建项目结构，然后从auth_service.py和main.py开始，确保认证和主流程打通，再逐步实现MCP层等复杂模块。每一步都要进行真实API测试。
+
+好的，自己弄你与AI聊天，创建申请单，根据AI返回的单据字段，给出内容，然后让AI创建单据
+
+如果需要小版本号，用这个接口，这是通过模板ID获取模板小版本号的接口内容你是否需要
+根据模板ID获取模板信息
+GET
+/api/openapi/v2/specifications/byIds/[
+ids
+]
+更新日志
+caution
+只返回未停用、未删除的模板信息。
+Path Parameters
+名称	类型	描述	是否必填	默认值	备注
+ids	Array	单据模板ID集合	必填	-	支持多个，数组方式，通过 获取当前版本单据模板列表，
+根据企业ID获取单据模板列表 获取
+Query Parameters
+名称	类型	描述	是否必填	默认值	备注
+accessToken	String	认证token	必填	-	通过 获取授权 获取 accessToken
+curl --location --request GET 'https://app.ekuaibao.com/api/openapi/v2/specifications/byIds/[GQgbu2n6osbI00]?accessToken=qUMbutefrU8U00' \
+--header 'content-type: application/json' \
+--header 'Accept: application/json'

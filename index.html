@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI智能申请单系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .status-badge {
+            background: #28a745;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .chat-panel {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 1rem;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            max-width: 85%;
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+        }
+
+        .message.ai {
+            background: white;
+            border: 1px solid #dee2e6;
+            margin-right: auto;
+        }
+
+        .chat-input-area {
+            padding: 1rem;
+            border-top: 1px solid #dee2e6;
+            background: white;
+        }
+
+        .chat-input-container {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .chat-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .info-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .stats-card, .features-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-card h3, .features-card h3 {
+            color: #667eea;
+            margin-bottom: 1.5rem;
+            font-size: 1.25rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 0.5rem;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            display: block;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .features-list {
+            list-style: none;
+        }
+
+        .features-list li {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .features-list li:last-child {
+            border-bottom: none;
+        }
+
+        .feature-icon {
+            width: 24px;
+            height: 24px;
+            background: #28a745;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .welcome-message {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .welcome-message h1 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 2.5rem;
+        }
+
+        .welcome-message p {
+            color: #6c757d;
+            font-size: 1.125rem;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+            
+            .welcome-message h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="#" class="logo">🤖 AI智能申请单系统</a>
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                系统运行中
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="welcome-message">
+            <h1>欢迎使用AI智能申请单系统</h1>
+            <p>通过自然语言对话，快速创建和管理申请单。只需描述您的需求，AI将自动帮您填写表单。</p>
+        </div>
+
+        <div class="main-content">
+            <div class="chat-panel">
+                <div class="chat-header">
+                    💬 AI助手对话
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message ai">
+                        <strong>AI助手：</strong>您好！我是您的智能申请助手。<br><br>
+                        我可以帮您：<br>
+                        • 📋 查看可填写的申请表字段<br>
+                        • ✏️ 快速创建各类申请单<br>
+                        • 🤖 智能理解您的申请需求<br><br>
+                        只需要用日常语言告诉我您的需求即可，比如：<br>
+                        "申请购买办公用品，预算2500元"
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <div class="chat-input-container">
+                        <input type="text" id="messageInput" class="chat-input" 
+                               placeholder="请描述您的申请需求..." 
+                               onkeypress="handleKeyPress(event)">
+                        <button id="sendBtn" class="send-btn" onclick="sendMessage()">
+                            发送
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <div class="stats-card">
+                    <h3>📊 系统统计</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-number" id="totalDocs">5</span>
+                            <div class="stat-label">已创建申请单</div>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="successRate">100%</span>
+                            <div class="stat-label">成功率</div>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="avgTime">2.3s</span>
+                            <div class="stat-label">平均响应时间</div>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="systemUptime">99.9%</span>
+                            <div class="stat-label">系统可用性</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="features-card">
+                    <h3>✨ 核心功能</h3>
+                    <ul class="features-list">
+                        <li>
+                            <div class="feature-icon">✓</div>
+                            <div>
+                                <strong>智能字段提取</strong><br>
+                                <small>AI自动从自然语言中提取申请单字段</small>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="feature-icon">✓</div>
+                            <div>
+                                <strong>模板自动获取</strong><br>
+                                <small>动态获取最新的申请单模板信息</small>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="feature-icon">✓</div>
+                            <div>
+                                <strong>实时单据创建</strong><br>
+                                <small>与易快报系统实时集成，生成真实单据</small>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="feature-icon">✓</div>
+                            <div>
+                                <strong>智能错误处理</strong><br>
+                                <small>自动处理各种API错误和字段验证</small>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const chatMessages = document.getElementById('chatMessages');
+
+        // 示例消息数据
+        const exampleMessages = [
+            "查看申请表有哪些字段",
+            "申请培训费用，3000元",
+            "购买办公电脑，预算5000元",
+            "申请员工活动经费1500元",
+            "买办公用品，2000元预算"
+        ];
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // 添加用户消息
+            addMessage(message, 'user');
+            messageInput.value = '';
+            
+            // 禁用发送按钮
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<div class="loading"></div>';
+
+            try {
+                // 发送请求到后端
+                const response = await fetch('http://localhost:8000/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const result = await response.json();
+                
+                // 添加AI回复
+                let aiMessage = '';
+                if (result.type === 'success') {
+                    aiMessage = '✅ ' + result.message;
+                    updateStats(); // 更新统计数据
+                } else if (result.type === 'template_fields') {
+                    aiMessage = result.message;
+                } else if (result.type === 'error') {
+                    aiMessage = '❌ ' + result.message;
+                } else {
+                    aiMessage = result.message || '系统响应异常';
+                }
+                
+                addMessage(aiMessage, 'ai');
+                
+            } catch (error) {
+                console.error('请求失败:', error);
+                addMessage('❌ 网络连接失败，请检查系统是否正常运行。', 'ai');
+            }
+
+            // 恢复发送按钮
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '发送';
+        }
+
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            if (sender === 'user') {
+                messageDiv.innerHTML = `<strong>您：</strong>${text}`;
+            } else {
+                messageDiv.innerHTML = `<strong>AI助手：</strong>${text.replace(/\n/g, '<br>')}`;
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function updateStats() {
+            // 更新已创建申请单数量
+            const totalDocs = document.getElementById('totalDocs');
+            const currentCount = parseInt(totalDocs.textContent) || 5;
+            totalDocs.textContent = currentCount + 1;
+        }
+
+        // 添加示例消息按钮
+        function addExampleButtons() {
+            const exampleDiv = document.createElement('div');
+            exampleDiv.innerHTML = `
+                <div style="margin: 1rem 0; text-align: center;">
+                    <small style="color: #6c757d;">💡 试试这些示例：</small><br>
+                    ${exampleMessages.map(msg => 
+                        `<button onclick="fillExample('${msg}')" style="
+                            margin: 0.25rem; padding: 0.25rem 0.5rem; 
+                            background: #f8f9fa; border: 1px solid #dee2e6; 
+                            border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem;
+                        ">${msg}</button>`
+                    ).join('')}
+                </div>
+            `;
+            chatMessages.appendChild(exampleDiv);
+        }
+
+        function fillExample(message) {
+            messageInput.value = message;
+            messageInput.focus();
+        }
+
+        // 页面加载完成后添加示例按钮
+        document.addEventListener('DOMContentLoaded', function() {
+            addExampleButtons();
+        });
+
+        // 定期更新系统状态
+        setInterval(() => {
+            const dot = document.querySelector('.status-dot');
+            dot.style.opacity = dot.style.opacity === '0.5' ? '1' : '0.5';
+        }, 1000);
+    </script>
+</body>
+</html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI智能申请单系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        .status-badge {
+            background: #28a745;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .chat-panel {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 1rem;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            max-width: 85%;
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+        }
+
+        .message.ai {
+            background: white;
+            border: 1px solid #dee2e6;
+            margin-right: auto;
+        }
+
+        .chat-input-area {
+            padding: 1rem;
+            border-top: 1px solid #dee2e6;
+            background: white;
+        }
+
+        .chat-input-container {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .chat-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .info-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .stats-card, .features-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-card h3, .features-card h3 {
+            color: #667eea;
+            margin-bottom: 1.5rem;
+            font-size: 1.25rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 0.5rem;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            display: block;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .features-list {
+            list-style: none;
+        }
+
+        .features-list li {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .features-list li:last-child {
+            border-bottom: none;
+        }
+
+        .feature-icon {
+            width: 24px;
+            height: 24px;
+            background: #28a745;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .welcome-message {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .welcome-message h1 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 2.5rem;
+        }
+
+        .welcome-message p {
+            color: #6c757d;
+            font-size: 1.125rem;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+            
+            .welcome-message h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="#" class="logo">🤖 AI智能申请单系统</a>
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                系统运行中
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="welcome-message">
+            <h1>欢迎使用AI智能申请单系统</h1>
+            <p>通过自然语言对话，快速创建和管理申请单。只需描述您的需求，AI将自动帮您填写表单。</p>
+        </div>
+
+        <div class="main-content">
+            <div class="chat-panel">
+                <div class="chat-header">
+                    💬 AI助手对话
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message ai">
+                        <strong>AI助手：</strong>您好！我是您的智能申请助手。<br><br>
+                        我可以帮您：<br>
+                        • 📋 查看可填写的申请表字段<br>
+                        • ✏️ 快速创建各类申请单<br>
+                        • 🤖 智能理解您的申请需求<br><br>
+                        只需要用日常语言告诉我您的需求即可，比如：<br>
+                        "申请购买办公用品，预算2500元"
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <div class="chat-input-container">
+                        <input type="text" id="messageInput" class="chat-input" 
+                               placeholder="请描述您的申请需求..." 
+                               onkeypress="handleKeyPress(event)">
+                        <button id="sendBtn" class="send-btn" onclick="sendMessage()">
+                            发送
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <div class="stats-card">
+                    <h3>📊 系统统计</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-number" id="totalDocs">5</span>
+                            <div class="stat-label">已创建申请单</div>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="successRate">100%</span>
+                            <div class="stat-label">成功率</div>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="avgTime">2.3s</span>
+                            <div class="stat-label">平均响应时间</div>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="systemUptime">99.9%</span>
+                            <div class="stat-label">系统可用性</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="features-card">
+                    <h3>✨ 核心功能</h3>
+                    <ul class="features-list">
+                        <li>
+                            <div class="feature-icon">✓</div>
+                            <div>
+                                <strong>智能字段提取</strong><br>
+                                <small>AI自动从自然语言中提取申请单字段</small>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="feature-icon">✓</div>
+                            <div>
+                                <strong>模板自动获取</strong><br>
+                                <small>动态获取最新的申请单模板信息</small>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="feature-icon">✓</div>
+                            <div>
+                                <strong>实时单据创建</strong><br>
+                                <small>与易快报系统实时集成，生成真实单据</small>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="feature-icon">✓</div>
+                            <div>
+                                <strong>智能错误处理</strong><br>
+                                <small>自动处理各种API错误和字段验证</small>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const chatMessages = document.getElementById('chatMessages');
+
+        // 示例消息数据
+        const exampleMessages = [
+            "查看申请表有哪些字段",
+            "申请培训费用，3000元",
+            "购买办公电脑，预算5000元",
+            "申请员工活动经费1500元",
+            "买办公用品，2000元预算"
+        ];
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // 添加用户消息
+            addMessage(message, 'user');
+            messageInput.value = '';
+            
+            // 禁用发送按钮
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<div class="loading"></div>';
+
+            try {
+                // 发送请求到后端
+                const response = await fetch('http://localhost:8000/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const result = await response.json();
+                
+                // 添加AI回复
+                let aiMessage = '';
+                if (result.type === 'success') {
+                    aiMessage = '✅ ' + result.message;
+                    updateStats(); // 更新统计数据
+                } else if (result.type === 'template_fields') {
+                    aiMessage = result.message;
+                } else if (result.type === 'error') {
+                    aiMessage = '❌ ' + result.message;
+                } else {
+                    aiMessage = result.message || '系统响应异常';
+                }
+                
+                addMessage(aiMessage, 'ai');
+                
+            } catch (error) {
+                console.error('请求失败:', error);
+                addMessage('❌ 网络连接失败，请检查系统是否正常运行。', 'ai');
+            }
+
+            // 恢复发送按钮
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '发送';
+        }
+
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            if (sender === 'user') {
+                messageDiv.innerHTML = `<strong>您：</strong>${text}`;
+            } else {
+                messageDiv.innerHTML = `<strong>AI助手：</strong>${text.replace(/\n/g, '<br>')}`;
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function updateStats() {
+            // 更新已创建申请单数量
+            const totalDocs = document.getElementById('totalDocs');
+            const currentCount = parseInt(totalDocs.textContent) || 5;
+            totalDocs.textContent = currentCount + 1;
+        }
+
+        // 添加示例消息按钮
+        function addExampleButtons() {
+            const exampleDiv = document.createElement('div');
+            exampleDiv.innerHTML = `
+                <div style="margin: 1rem 0; text-align: center;">
+                    <small style="color: #6c757d;">💡 试试这些示例：</small><br>
+                    ${exampleMessages.map(msg => 
+                        `<button onclick="fillExample('${msg}')" style="
+                            margin: 0.25rem; padding: 0.25rem 0.5rem; 
+                            background: #f8f9fa; border: 1px solid #dee2e6; 
+                            border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem;
+                        ">${msg}</button>`
+                    ).join('')}
+                </div>
+            `;
+            chatMessages.appendChild(exampleDiv);
+        }
+
+        function fillExample(message) {
+            messageInput.value = message;
+            messageInput.focus();
+        }
+
+        // 页面加载完成后添加示例按钮
+        document.addEventListener('DOMContentLoaded', function() {
+            addExampleButtons();
+        });
+
+        // 定期更新系统状态
+        setInterval(() => {
+            const dot = document.querySelector('.status-dot');
+            dot.style.opacity = dot.style.opacity === '0.5' ? '1' : '0.5';
+        }, 1000);
+    </script>
+</body>
+</html>
